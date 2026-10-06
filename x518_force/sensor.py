@@ -138,7 +138,7 @@ class X518Sensor:
                     self._port = serial.Serial(
                         port=self.config.port, baudrate=self.config.baud, bytesize=8,
                         parity=self.config.parity, stopbits=self.config.stopbits,
-                        timeout=self.config.timeout, write_timeout=self.config.timeout,
+                        timeout=0, write_timeout=self.config.timeout,
                     )
                 except (serial.SerialException, OSError) as exc:
                     raise SensorError(f"cannot open {self.config.port}: {exc}") from exc

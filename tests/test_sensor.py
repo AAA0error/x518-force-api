@@ -65,7 +65,7 @@ class SensorTests(unittest.TestCase):
             self.assertEqual(port.timeout, 1.0)
             self.assertTrue(port.closed)
             factory.assert_called_once_with(port="/dev/cu.usbserial-TEST", baudrate=115200,
-                bytesize=8, parity="N", stopbits=1, timeout=1.0, write_timeout=1.0)
+                bytesize=8, parity="N", stopbits=1, timeout=0, write_timeout=1.0)
         with self.assertRaises(SensorError):
             sensor.read()
 
@@ -86,7 +86,7 @@ class SensorTests(unittest.TestCase):
                 port = FakePort(frame)
                 with patch("x518_force.sensor.serial.Serial", return_value=port):
                     with self.assertRaises(ProtocolError):
-                        with X518Sensor(Config(port="FAKE")) as sensor:
+                        with X518Sensor(Config(port="FAKE", timeout=0.05)) as sensor:
                             sensor.read()
                 self.assertTrue(port.closed)
                 self.assertEqual(port.timeout, 1.0)
