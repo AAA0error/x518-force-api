@@ -3,7 +3,7 @@
 import time
 
 
-def read_response(port, timeout):
+def read_response(port, timeout, expected_byte_count=8):
     """Accumulate fragmented reads within ONE deadline, including exception frames."""
     deadline = time.monotonic() + timeout
     frame = bytearray()
@@ -25,8 +25,8 @@ def read_response(port, timeout):
         if len(frame) >= 3 and target == 3:
             if frame[1] == 0x83:
                 target = 5
-            elif frame[1] == 3 and frame[2] == 8:
-                target = 13
+            elif frame[1] == 3 and frame[2] == expected_byte_count:
+                target = 5 + expected_byte_count
             else:
                 break
     # Already-buffered extra bytes must not be accepted as a valid frame.

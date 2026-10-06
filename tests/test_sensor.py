@@ -69,6 +69,41 @@ class SensorTests(unittest.TestCase):
         with self.assertRaises(SensorError):
             sensor.read()
 
+    def test_channel_one_request_fragmentation_and_scaling(self):
+        response = append_crc(bytes.fromhex("01 03 04 FF FF FF 9C"))
+        port = FakePort(response)
+        with patch("x518_force.sensor.serial.Serial", return_value=port):
+            with X518Sensor(Config(port="FAKE", channels=1)) as sensor:
+                sample = sensor.read()
+                self.assertEqual(sample.raw, (-100,))
+                self.assertEqual(sample.values, (-1.0,))
+                self.assertEqual(len(sample.rx), 9)
+        request = port.requests[0]
+        self.assertEqual(request[:6], bytes.fromhex("01 03 0A 00 00 02"))
+        self.assertEqual(crc16(request), 0)
+        self.assertTrue(port.closed)
+
+    def test_channel_one_rejects_invalid_responses(self):
+        good = append_crc(bytes.fromhex("01 03 04 00 00 00 06"))
+        frames = [RESPONSE, good[:-1], good + b"\x00",
+                  good[:-1] + bytes([good[-1] ^ 1]),
+                  append_crc(b"\x01\x83\x02")]
+        for frame in frames:
+            with self.subTest(frame=frame):
+                with patch("x518_force.sensor.serial.Serial", return_value=FakePort(frame)):
+                    with X518Sensor(Config(port="FAKE", channels=1, timeout=0.05)) as sensor:
+                        with self.assertRaises(ProtocolError):
+                            sensor.read()
+
+    def test_channel_one_demo_and_word_swap(self):
+        for swap in (False, True):
+            with X518Sensor(Config(channels=1, word_swap=swap), demo=True) as sensor:
+                self.assertEqual(sensor.read().raw, (101,))
+                self.assertEqual(sensor.read().raw, (102,))
+        for value in (0, 3, True, 1.0):
+            with self.assertRaises(ValueError):
+                Config(channels=value)
+
     def test_crc_typo(self):
         self.assertEqual(crc16(build_read_request()), 0)
         self.assertNotEqual(crc16(bytes.fromhex("01 03 0a 00 00 04 46 d1")), 0)

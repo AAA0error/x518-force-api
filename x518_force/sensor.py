@@ -28,12 +28,13 @@ class Config:
     decimals: int = 2
     unit: str = "kg"
     word_swap: bool = False
+    channels: int = 2
 
     def __post_init__(self):
         for name, allowed in (
             ("baud", (2400, 4800, 9600, 19200, 38400, 57600, 115200)),
             ("slave", range(1, 248)), ("stopbits", (1, 2)),
-            ("decimals", range(6)),
+            ("decimals", range(6)), ("channels", (1, 2)),
         ):
             value = getattr(self, name)
             if type(value) is not int or value not in allowed:
@@ -53,8 +54,8 @@ class Config:
 
 @dataclass(frozen=True)
 class Sample:
-    raw: tuple[int, int]
-    values: tuple[float, float]
+    raw: tuple[int, ...]
+    values: tuple[float, ...]
     unit: str
     decimals: int
     timestamp: str
@@ -94,10 +95,10 @@ class _DemoPort:
     def write(self, request):
         self.index += 1
         payload = b""
-        for value in (100 + self.index, -50 - self.index):
+        for value in (100 + self.index, -50 - self.index)[:self.config.channels]:
             data = struct.pack(">i", value)
             payload += data[2:] + data[:2] if self.config.word_swap else data
-        self.buffer.extend(append_crc(bytes([self.config.slave, 3, 8]) + payload))
+        self.buffer.extend(append_crc(bytes([self.config.slave, 3, len(payload)]) + payload))
         return len(request)
 
     def read(self, size):
@@ -111,7 +112,7 @@ class _DemoPort:
 
 
 class X518Sensor:
-    """One serial owner. read() returns a fresh pair or raises an exception.
+    """One serial owner. read() returns fresh configured channels or raises an exception.
 
     Constructing is side-effect free; open explicitly or use a with statement.
     Reads and close are serialized. This interface is not a real-time scheduler.
@@ -150,7 +151,7 @@ class X518Sensor:
             if self._port is None:
                 raise SensorError("sensor is closed; use with X518Sensor(...) or open()")
             config = self.config
-            tx = build_read_request(config.slave)
+            tx = build_read_request(config.slave, config.channels)
             started = time.monotonic()
             bits = 1 + 8 + (config.parity != "N") + config.stopbits
             gap = 0.002 if config.baud > 19200 else 3.5 * bits / config.baud
@@ -160,10 +161,10 @@ class X518Sensor:
                 written = self._port.write(tx)
                 if written != len(tx):
                     raise SensorError(f"short serial write: {written}/{len(tx)}")
-                rx = read_response(self._port, config.timeout)
+                rx = read_response(self._port, config.timeout, config.channels * 4)
             except (serial.SerialException, OSError) as exc:
                 raise SensorError(f"serial transaction failed: {exc}") from exc
-            raw = parse_measurement_response(rx, config.slave, config.word_swap)
+            raw = parse_measurement_response(rx, config.slave, config.word_swap, config.channels)
             received = time.monotonic()
             return Sample(
                 raw=raw, values=tuple(value / 10 ** config.decimals for value in raw),

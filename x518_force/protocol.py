@@ -35,12 +35,14 @@ def append_crc(data):
     return data + struct.pack("<H", crc16(data))
 
 
-def build_read_request(slave=1):
-    # Intentionally fixed address and function: no arbitrary writes or scans.
+def build_read_request(slave=1, channels=2):
+    # Fixed measurement address and function: no arbitrary writes or scans.
+    if type(channels) is not int or channels not in (1, 2):
+        raise ValueError("channels must be 1 or 2")
     if not 1 <= slave <= 247:
         raise ValueError("slave must be 1..247 (broadcast reads are forbidden)")
     return append_crc(struct.pack(">BBHH", slave, 3, MEASUREMENT_ADDRESS,
-                                  MEASUREMENT_REGISTERS))
+                                  channels * 2))
 
 
 def decode_int32(data, word_swap=False):
@@ -51,7 +53,9 @@ def decode_int32(data, word_swap=False):
     return struct.unpack(">i", data)[0]
 
 
-def parse_measurement_response(frame, slave=1, word_swap=False):
+def parse_measurement_response(frame, slave=1, word_swap=False, channels=2):
+    if type(channels) is not int or channels not in (1, 2):
+        raise ValueError("channels must be 1 or 2")
     if not frame:
         raise ProtocolError("timeout: empty response")
     if len(frame) < 5:
@@ -61,7 +65,7 @@ def parse_measurement_response(frame, slave=1, word_swap=False):
     function = frame[1]
     if function not in (3, 0x83):
         raise ProtocolError(f"wrong function: expected 03/83, received {function:02X}")
-    expected_length = 5 if function == 0x83 else 13
+    expected_length = 5 if function == 0x83 else 5 + channels * 4
     if len(frame) != expected_length:
         raise ProtocolError(f"frame length: expected {expected_length}, received {len(frame)}")
     actual_crc = int.from_bytes(frame[-2:], "little")
@@ -70,10 +74,10 @@ def parse_measurement_response(frame, slave=1, word_swap=False):
         raise ProtocolError(f"CRC mismatch: expected {expected_crc:04X}, received {actual_crc:04X}")
     if function == 0x83:
         raise ModbusException(frame[2])
-    if frame[2] != 8:
-        raise ProtocolError(f"byte count: expected 8, received {frame[2]}")
-    return (decode_int32(frame[3:7], word_swap),
-            decode_int32(frame[7:11], word_swap))
+    if frame[2] != channels * 4:
+        raise ProtocolError(f"byte count: expected {channels * 4}, received {frame[2]}")
+    return tuple(decode_int32(frame[offset:offset + 4], word_swap)
+                 for offset in range(3, 3 + channels * 4, 4))
 
 
 if __name__ == "__main__":
