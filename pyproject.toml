@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling==1.27.0", "editables==0.5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "x518-force"
+version = "0.1.0"
+description = "Read-only X518 two-channel force sensor Python API"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dependencies = ["pyserial==3.5"]
+
+[project.scripts]
+x518-force = "x518_force.__main__:main"
+
+[dependency-groups]
+dev = ["hatchling==1.27.0", "editables==0.5"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["x518_force"]
