@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-15, macos-15-intel]
+        os: [windows-latest, macos-15, macos-15-intel]
         python: ['3.10', '3.12', '3.14']
     runs-on: ${{ matrix.os }}
     steps:
@@ -25,8 +25,8 @@ jobs:
         shell: python
         run: |
           import pathlib, subprocess, sys, tempfile
-          interpreter = pathlib.Path('wheel-env') / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
-          interpreter = interpreter.resolve()
+          # Preserve the venv path: resolving Python symlinks bypasses the venv on macOS.
+          interpreter = pathlib.Path.cwd() / 'wheel-env' / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
           wheel = next(pathlib.Path('dist').glob('*.whl')).resolve()
           subprocess.run(['uv', 'pip', 'install', '--python', str(interpreter), str(wheel)], check=True)
           with tempfile.TemporaryDirectory() as directory:

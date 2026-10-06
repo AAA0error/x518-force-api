@@ -30,7 +30,7 @@ uv run --locked python -m x518_force --port COM3 --decimals 2 --unit kg --count 
 uv run --locked python -m x518_force --port /dev/cu.usbserial-实际编号 --decimals 2 --unit kg --count 20
 ```
 
-Mac 使用实际 `/dev/cu.*` 端口；USB 转换器可能需要厂商的 macOS 驱动，取决于芯片型号。pyserial 支持 Windows、Linux 和 macOS，但这不能替代你的转换器实测。[pyserial 平台说明](https://pyserial.readthedocs.io/en/latest/pyserial.html)
+Mac 使用实际 `/dev/cu.*` 端口；USB 转换器可能需要厂商的 macOS 驱动，取决于芯片型号。本项目当前只面向 Windows 和 macOS；pyserial 的平台支持不能替代你的转换器实测。[pyserial 平台说明](https://pyserial.readthedocs.io/en/latest/pyserial.html)
 
 ## 同门如何调用
 
@@ -90,12 +90,12 @@ except (ProtocolError, SensorError) as exc:
 
 ## 没有 Mac，如何验证
 
-本目录 `.github/workflows/compatibility.yml` 已配置 Windows、Linux、macOS Apple Silicon（`macos-15`）、macOS Intel（`macos-15-intel`），分别运行 Python 3.10/3.12/3.14。它验证 uv 安装、测试、演示、构建，以及在源码目录外安装 wheel 后调用；共 12 组任务。[GitHub 官方 runner 说明](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+本目录 `.github/workflows/compatibility.yml` 已配置 Windows、macOS Apple Silicon（`macos-15`）、macOS Intel（`macos-15-intel`），分别运行 Python 3.10/3.12/3.14。它验证 uv 安装、测试、演示、构建，以及在源码目录外安装 wheel 后调用；共 9 组任务。[GitHub 官方 runner 说明](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 
 1. 仓库地址：[AAA0error/x518-force-api](https://github.com/AAA0error/x518-force-api)。Actions 运行结果以 GitHub 页面为准。
 2. 源码更新提交并推送后会触发测试；应包含隐藏的 `.github` 和 `uv.lock`，不上传 `.venv` 或本地实验数据。
 3. 在 Actions 查看 `Python platform compatibility`；可用 Run workflow 手动触发，保留日志、Python/uv版本、runner架构和 commit。
-4. 只有 Mac 两种架构对应的任务通过，才可以说这些软件测试在 macOS 上通过；现在仍是待执行。
+4. 只有 Mac 两种架构对应的任务通过，才可以说这些软件测试在 macOS 上通过；修正后的运行结果以 Actions 页面为准。
 
 公开仓库标准 runner 通常免费；私有仓库受免费分钟额度/计费规则约束，运行前查看自己的额度。Windows 上的 Docker/WSL 是 Linux 环境，不能充当 macOS 验证。[GitHub runner 资源与费用说明](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 
@@ -121,6 +121,6 @@ except (ProtocolError, SensorError) as exc:
 
 本地构建采用预装开发依赖的方式，避免在 `.venv` 之外建立临时构建环境；Hatchling 的可编辑安装需要 editables，已显式声明以修复初次缺少该构建依赖的失败。普通目标主机可使用上面的 `uv sync --locked` 自动构建；CI 会验证这一标准流程。
 
-未打开真实串口；macOS、Linux 和其他 Python 版本运行尚未验证。项目未配置独立 lint/typecheck 工具。云端测试全部待执行，不把准备好测试等同于测试通过。
+后续 Windows COM3 三次真实读取成功，raw 为 `(86, -65719)`；缩放、单位和标定仍需加载/卸载对照。首次 Actions 中 Windows 的三个 Python 版本及两种 Mac 的 Python 3.12 全部通过；其余任务在最后的 wheel 安装检查失败，原因是测试配置解析 Python 符号链接后绕过了虚拟环境，已修正。按当前需求移除 Ubuntu，仅测试 Windows 和两种 Mac；新版测试结果以 Actions 页面为准。项目未配置独立 lint/typecheck 工具。云端离线测试不能替代 Mac 的真实串口验收。
 
 已有环境也可直接在本目录 `python -m unittest discover -s tests -v`、`python -m x518_force --demo --count 3`；这验证源码运行，不能代替包安装验证。
